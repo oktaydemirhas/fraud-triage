@@ -16,8 +16,10 @@ import org.springframework.stereotype.Service;
 /**
  * Per-account event history in memory (swap point for Kafka + a state store). Guarantees:
  * - idempotent: a repeated event id returns the first result and is not counted twice;
- * - order-independent: a late event is inserted by timestamp and judged only against events before it;
- * - bounded: 500 events / 30 days per account, 10 000 accounts.
+ * - timestamp-ordered, NOT order-independent: a late event is inserted by timestamp and judged only against the events
+ *   before it, but the events after it are not re-scored. The same events can therefore get different decisions
+ *   depending on arrival order (e.g. a password reset that arrives after the payment it should have flagged);
+ * - bounded per account (500 events / 30 days) and in account count (10 000); accounts are never evicted.
  */
 @Service
 public class TriageService {
@@ -65,7 +67,13 @@ public class TriageService {
             int idx = 0;
             while (idx < acc.events.size() && ORDER.compare(acc.events.get(idx), e) < 0) idx++;
             List<Event> prior = List.copyOf(acc.events.subList(0, idx));
-            Triage result = engine.score(e, prior);
+            // Only events that were themselves ALLOWed define "normal" for the account (devices, amounts, home country).
+            Map<String, Triage> results = acc.results;
+            List<Event> baseline = prior.stream().filter(p -> {
+                Triage r = results.get(p.id());
+                return r != null && r.decision() == Triage.Decision.ALLOW;
+            }).toList();
+            Triage result = engine.score(e, prior, baseline);
 
             acc.events.add(idx, e);
             acc.results.put(e.id(), result);

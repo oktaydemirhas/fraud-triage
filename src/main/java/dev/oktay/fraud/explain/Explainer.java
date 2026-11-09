@@ -58,7 +58,8 @@ public class Explainer {
     });
 
     public Explanation explain(Triage t) {
-        String key = t.event().accountId() + "|" + t.event().id();
+        // Length-prefixed so accountId "a|b" + id "c" can never collide with accountId "a" + id "b|c".
+        String key = t.event().accountId().length() + ":" + t.event().accountId() + t.event().id();
         Explanation cached = cache.get(key);
         if (cached != null) return cached;
         Explanation fresh = explainUncached(t);

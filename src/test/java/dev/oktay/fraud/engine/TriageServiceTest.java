@@ -46,6 +46,27 @@ class TriageServiceTest {
         assertTrue(next.hasCode("VELOCITY"));
     }
 
+    private static Event payment(String id, String account, double amount, String device, long minutesAgo) {
+        return new Event(id, account, Type.PAYMENT, BigDecimal.valueOf(amount), "TR", device, "m", NOW.minusSeconds(minutesAgo * 60));
+    }
+
+    @Test
+    void blockedAttemptDoesNotBecomeThePartOfNormalBehaviour() {
+        // Five ordinary payments on D1, days apart (no velocity), 180-220 TRY.
+        double[] normal = {180, 200, 220, 190, 210};
+        for (int i = 0; i < normal.length; i++) service.process(payment("n" + i, "victim", normal[i], "D1", (5 - i) * 24 * 60L));
+
+        // A large payment from a never-seen device is blocked ...
+        Triage first = service.process(payment("x1", "victim", 6000, "D9", 10));
+        assertEquals(Triage.Decision.BLOCK, first.decision());
+        // ... and retrying it under new ids must not turn D9 or 6000 TRY into "usual" for the account.
+        assertEquals(Triage.Decision.BLOCK, service.process(payment("x2", "victim", 6000, "D9", 5)).decision());
+        Triage third = service.process(payment("x3", "victim", 6000, "D9", 1));
+        assertEquals(Triage.Decision.BLOCK, third.decision());
+        assertTrue(third.hasCode("NEW_DEVICE_HIGH_AMOUNT"));
+        assertTrue(third.hasCode("AMOUNT_ANOMALY"));
+    }
+
     @Test
     void accountsDoNotInfluenceEachOther() {
         for (int i = 1; i <= 8; i++) service.process(pay("a" + i, "busy", 8 - i));

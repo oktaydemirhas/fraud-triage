@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +34,16 @@ public class RiskEngine {
     static final double ATO_AMOUNT = 2000;
 
     public Triage score(Event e, List<Event> prior) {
+        return score(e, prior, prior);
+    }
+
+    /**
+     * `baseline` is the subset of `prior` that counts as normal behaviour (events that were themselves ALLOWed).
+     * Counting signals (velocity, brute force, travel, takeover) look at all of `prior`; "what is usual for this
+     * account" (known devices, amount statistics, home country) looks only at `baseline`. Otherwise a blocked
+     * attempt would teach the account that its device and amount are normal, and a retry would pass.
+     */
+    public Triage score(Event e, List<Event> prior, List<Event> baseline) {
         List<Signal> s = new ArrayList<>();
         Instant at = e.at();
 
@@ -56,12 +67,12 @@ public class RiskEngine {
 
         // Below MATERIAL_AMOUNT a statistical outlier is noise: on a tight history (180-220 TL) a normal 300 TL payment is "4.6 sigma".
         if (e.isPayment() && e.amountValue() >= MATERIAL_AMOUNT) {
-            double z = amountZ(e, prior);
+            double z = amountZ(e, baseline);
             if (!Double.isNaN(z) && z >= 5) s.add(sig("AMOUNT_ANOMALY", 45, "zScore", round1(z), "amountTry", e.amountValue()));
             else if (!Double.isNaN(z) && z >= 3) s.add(sig("AMOUNT_ANOMALY", 35, "zScore", round1(z), "amountTry", e.amountValue()));
         }
 
-        boolean newDevice = e.deviceId() != null && !prior.isEmpty() && prior.stream().noneMatch(p -> e.deviceId().equals(p.deviceId()));
+        boolean newDevice = e.deviceId() != null && !baseline.isEmpty() && baseline.stream().noneMatch(p -> e.deviceId().equals(p.deviceId()));
         if (e.isPayment() && newDevice && e.amountValue() >= HIGH_AMOUNT) s.add(sig("NEW_DEVICE_HIGH_AMOUNT", 30, "amountTry", e.amountValue(), "thresholdTry", HIGH_AMOUNT));
         if ((e.type() == Type.ADDRESS_CHANGE || e.type() == Type.PASSWORD_RESET) && newDevice) s.add(sig("ACCOUNT_CHANGE_NEW_DEVICE", 25));
 
@@ -71,9 +82,9 @@ public class RiskEngine {
             if (change != null) s.add(sig("ACCOUNT_TAKEOVER_PATTERN", 40, "minutesAfterChange", Duration.between(change.at(), at).toMinutes(), "amountTry", e.amountValue()));
         }
 
-        if (e.isPayment() && e.country() != null && prior.size() >= MIN_HISTORY) {
-            String home = homeCountry(prior);
-            if (home != null && !home.equalsIgnoreCase(e.country())) s.add(sig("FOREIGN_COUNTRY", 15, "country", e.country().toUpperCase(), "homeCountry", home));
+        if (e.isPayment() && e.country() != null && baseline.size() >= MIN_HISTORY) {
+            String home = homeCountry(baseline);
+            if (home != null && !home.equalsIgnoreCase(e.country())) s.add(sig("FOREIGN_COUNTRY", 15, "country", e.country().toUpperCase(Locale.ROOT), "homeCountry", home));
         }
 
         int score = Math.min(100, s.stream().mapToInt(Signal::weight).sum());
@@ -99,7 +110,7 @@ public class RiskEngine {
 
     private static String homeCountry(List<Event> prior) {
         Map<String, Integer> counts = new LinkedHashMap<>();
-        for (Event p : prior) if (p.country() != null) counts.merge(p.country().toUpperCase(), 1, Integer::sum);
+        for (Event p : prior) if (p.country() != null) counts.merge(p.country().toUpperCase(Locale.ROOT), 1, Integer::sum);
         return counts.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
     }
 
