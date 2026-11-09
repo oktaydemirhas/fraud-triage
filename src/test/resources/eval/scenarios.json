@@ -1,0 +1,72 @@
+[
+  { "id": "s-01", "note": "normal payment", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "amount": 250 } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["AMOUNT_ANOMALY", "VELOCITY", "FOREIGN_COUNTRY"] } },
+  { "id": "s-02", "note": "first ever event", "events": [ { "t": 0, "amount": 300 } ],
+    "expect": { "decision": "ALLOW", "codes": [] } },
+  { "id": "s-03", "note": "five payments in 10 minutes", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -8, "x": 5, "step": 2, "amount": 100 } ],
+    "expect": { "decision": "REVIEW", "codes": ["VELOCITY"] } },
+  { "id": "s-04", "note": "eight payments in 8 minutes", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -7, "x": 8, "step": 1, "amount": 100 } ],
+    "expect": { "decision": "REVIEW", "codes": ["VELOCITY"] } },
+  { "id": "s-05", "note": "amount far above the account's habit", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "amount": 1000 } ],
+    "expect": { "decision": "REVIEW", "codes": ["AMOUNT_ANOMALY"] } },
+  { "id": "s-06", "note": "modest rise stays below z=3", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "amount": 260 } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["AMOUNT_ANOMALY"] } },
+  { "id": "s-07", "note": "TR then US within 30 minutes", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -30, "amount": 200 }, { "t": 0, "amount": 200, "country": "US" } ],
+    "expect": { "decision": "REVIEW", "codes": ["IMPOSSIBLE_TRAVEL", "FOREIGN_COUNTRY"] } },
+  { "id": "s-08", "note": "foreign country alone is not enough", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "amount": 200, "country": "DE" } ],
+    "expect": { "decision": "ALLOW", "codes": ["FOREIGN_COUNTRY"], "notCodes": ["IMPOSSIBLE_TRAVEL"] } },
+  { "id": "s-09", "note": "new device, large unusual payment", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "amount": 6000, "device": "D9" } ],
+    "expect": { "decision": "BLOCK", "codes": ["NEW_DEVICE_HIGH_AMOUNT", "AMOUNT_ANOMALY"] } },
+  { "id": "s-10", "note": "new device, small payment", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "amount": 300, "device": "D9" } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["NEW_DEVICE_HIGH_AMOUNT"] } },
+  { "id": "s-11", "note": "six failed logins then a success", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -5, "x": 6, "step": 0.8, "type": "LOGIN_FAILED" }, { "t": 0, "type": "LOGIN_OK" } ],
+    "expect": { "decision": "REVIEW", "codes": ["BRUTE_FORCE_LOGIN"] } },
+  { "id": "s-12", "note": "sixth failed login alone stays below review", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -4, "x": 6, "step": 0.8, "type": "LOGIN_FAILED" } ],
+    "expect": { "decision": "ALLOW", "codes": ["BRUTE_FORCE_LOGIN"] } },
+  { "id": "s-13", "note": "password reset then payment", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -20, "type": "PASSWORD_RESET", "device": "D9" }, { "t": 0, "amount": 3000, "device": "D9" } ],
+    "expect": { "decision": "BLOCK", "codes": ["ACCOUNT_TAKEOVER_PATTERN"] } },
+  { "id": "s-14", "note": "address change from a new device", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "type": "ADDRESS_CHANGE", "device": "D9" } ],
+    "expect": { "decision": "ALLOW", "codes": ["ACCOUNT_CHANGE_NEW_DEVICE"] } },
+  { "id": "s-15", "note": "address change then payment", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -10, "type": "ADDRESS_CHANGE", "device": "D9" }, { "t": 0, "amount": 2500, "device": "D9" } ],
+    "expect": { "decision": "BLOCK", "codes": ["ACCOUNT_TAKEOVER_PATTERN", "AMOUNT_ANOMALY"] } },
+  { "id": "s-16", "note": "velocity from abroad", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -8, "x": 5, "step": 2, "amount": 100, "country": "DE" } ],
+    "expect": { "decision": "REVIEW", "codes": ["VELOCITY", "FOREIGN_COUNTRY"], "notCodes": ["IMPOSSIBLE_TRAVEL"] } },
+  { "id": "s-17", "note": "five payments spread over 80 minutes", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -80, "x": 5, "step": 20, "amount": 100 } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["VELOCITY"] } },
+  { "id": "s-18", "note": "zero-amount payment", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "amount": 0 } ],
+    "expect": { "decision": "ALLOW" } }
+]

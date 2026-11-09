@@ -1,0 +1,64 @@
+[
+  { "id": "h-01", "note": "four payments in 10 minutes is not velocity", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -6, "x": 4, "step": 2, "amount": 100 } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["VELOCITY"] } },
+  { "id": "h-02", "note": "oldest payment exactly 10 minutes back still counts", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -10, "x": 5, "step": 2.5, "amount": 100 } ],
+    "expect": { "decision": "REVIEW", "codes": ["VELOCITY"] } },
+  { "id": "h-03", "note": "one payment just outside the window", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -10.1, "amount": 100 }, { "t": -7.5, "x": 4, "step": 2.5, "amount": 100 } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["VELOCITY"] } },
+  { "id": "h-04", "note": "exactly 5000 from a new device", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 4000 }, { "t": -4320, "x": 3, "step": 1440, "amount": 6000 },
+      { "t": 0, "amount": 5000, "device": "D9" } ],
+    "expect": { "decision": "REVIEW", "codes": ["NEW_DEVICE_HIGH_AMOUNT"], "notCodes": ["AMOUNT_ANOMALY"] } },
+  { "id": "h-05", "note": "4999 from a new device", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 4000 }, { "t": -4320, "x": 3, "step": 1440, "amount": 6000 },
+      { "t": 0, "amount": 4999, "device": "D9" } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["NEW_DEVICE_HIGH_AMOUNT"] } },
+  { "id": "h-06", "note": "previous event in another country exactly 120 minutes back", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -120, "amount": 200 }, { "t": 0, "amount": 200, "country": "US" } ],
+    "expect": { "decision": "REVIEW", "codes": ["IMPOSSIBLE_TRAVEL"] } },
+  { "id": "h-07", "note": "121 minutes back is outside the travel window", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -121, "amount": 200 }, { "t": 0, "amount": 200, "country": "US" } ],
+    "expect": { "decision": "ALLOW", "codes": ["FOREIGN_COUNTRY"], "notCodes": ["IMPOSSIBLE_TRAVEL"] } },
+  { "id": "h-08", "note": "too little history for statistics", "events": [
+      { "t": -5760, "x": 4, "step": 1440, "amount": 200 }, { "t": 0, "amount": 5000 } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["AMOUNT_ANOMALY", "FOREIGN_COUNTRY"] } },
+  { "id": "h-09", "note": "payment 31 minutes after a password reset", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -31, "type": "PASSWORD_RESET" }, { "t": 0, "amount": 3000 } ],
+    "expect": { "decision": "REVIEW", "codes": ["AMOUNT_ANOMALY"], "notCodes": ["ACCOUNT_TAKEOVER_PATTERN"] } },
+  { "id": "h-10", "note": "payment exactly 30 minutes after a reset, amount exactly 2000", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 4000 }, { "t": -4320, "x": 3, "step": 1440, "amount": 6000 },
+      { "t": -30, "type": "PASSWORD_RESET" }, { "t": 0, "amount": 2000 } ],
+    "expect": { "decision": "REVIEW", "codes": ["ACCOUNT_TAKEOVER_PATTERN"] } },
+  { "id": "h-11", "note": "1999 after a reset is below the takeover amount", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 4000 }, { "t": -4320, "x": 3, "step": 1440, "amount": 6000 },
+      { "t": -30, "type": "PASSWORD_RESET" }, { "t": 0, "amount": 1999 } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["ACCOUNT_TAKEOVER_PATTERN"] } },
+  { "id": "h-12", "note": "four failed logins then success", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -5, "x": 4, "step": 1, "type": "LOGIN_FAILED" }, { "t": 0, "type": "LOGIN_OK" } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["BRUTE_FORCE_LOGIN"] } },
+  { "id": "h-13", "note": "five failed logins then success", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -5, "x": 5, "step": 1, "type": "LOGIN_FAILED" }, { "t": 0, "type": "LOGIN_OK" } ],
+    "expect": { "decision": "REVIEW", "codes": ["BRUTE_FORCE_LOGIN"] } },
+  { "id": "h-14", "note": "failures older than 10 minutes do not count", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": -30, "x": 5, "step": 1, "type": "LOGIN_FAILED" }, { "t": 0, "type": "LOGIN_OK" } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["BRUTE_FORCE_LOGIN"] } },
+  { "id": "h-15", "note": "first event ever is an address change", "events": [
+      { "t": 0, "type": "ADDRESS_CHANGE", "device": "D9" } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["ACCOUNT_CHANGE_NEW_DEVICE"] } },
+  { "id": "h-16", "note": "payment without a country", "events": [
+      { "t": -8640, "x": 3, "step": 1440, "amount": 180 }, { "t": -4320, "x": 3, "step": 1440, "amount": 220 },
+      { "t": 0, "amount": 200, "country": "none" } ],
+    "expect": { "decision": "ALLOW", "notCodes": ["FOREIGN_COUNTRY", "IMPOSSIBLE_TRAVEL"] } }
+]
